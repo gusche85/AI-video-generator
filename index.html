@@ -124,7 +124,7 @@ async function generate() {
   output.style.display = "none";
 
   try {
-    const res = await fetch("/index.js", {
+    const res = await fetch("/api/generate"), {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
