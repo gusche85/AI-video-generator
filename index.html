@@ -1,27 +1,15 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
   <title>AI Video Generator</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <style>
     body {
-      margin: 0;
-      font-family: Arial, sans-serif;
       background: #0f0f14;
       color: white;
-    }
-
-    .container {
-      max-width: 500px;
-      margin: auto;
+      font-family: Arial;
       padding: 20px;
-    }
-
-    h2 {
-      text-align: center;
-      margin-bottom: 20px;
     }
 
     input, select, button {
@@ -30,136 +18,65 @@
       margin: 10px 0;
       border-radius: 8px;
       border: none;
-      font-size: 16px;
-    }
-
-    input, select {
-      background: #1a1a22;
-      color: white;
     }
 
     button {
-      background: linear-gradient(135deg, #7b61ff, #5a4bff);
+      background: purple;
       color: white;
-      font-weight: bold;
-      cursor: pointer;
-    }
-
-    button:hover {
-      opacity: 0.9;
-    }
-
-    .status {
-      text-align: center;
-      margin: 10px 0;
-      color: #aaa;
-    }
-
-    .video-container {
-      margin-top: 20px;
-      display: none;
     }
 
     video {
       width: 100%;
-      border-radius: 12px;
-    }
-
-    .script-box {
-      background: #1a1a22;
-      padding: 15px;
-      border-radius: 10px;
       margin-top: 15px;
-      white-space: pre-line;
-      font-size: 14px;
-    }
-
-    .download-btn {
-      margin-top: 10px;
-      background: #22c55e;
     }
   </style>
 </head>
 <body>
 
-<div class="container">
-  <h2>🎬 AI Video Generator</h2>
+<h2>🎬 AI Video Generator</h2>
 
-  <input id="product" placeholder="Paste product link">
+<input id="input" placeholder="Paste TikTok link here...">
 
-  <select id="angle">
-    <option>Talking</option>
-    <option>Aesthetic</option>
-    <option>Problem-Solution</option>
-    <option>Testimonial</option>
-  </select>
+<select id="angle">
+  <option>Talking</option>
+  <option>Aesthetic</option>
+  <option>Problem-Solution</option>
+</select>
 
-  <select id="duration">
-    <option value="10s">10 seconds</option>
-    <option value="15s" selected>15 seconds</option>
-    <option value="30s">30 seconds</option>
-  </select>
+<button onclick="generate()">Generate</button>
 
-  <button onclick="generate()">🚀 Generate Video</button>
+<p id="status"></p>
 
-  <div class="status" id="status"></div>
-
-  <div class="video-container" id="output">
-    <video id="video" controls></video>
-    <button class="download-btn" onclick="downloadVideo()">⬇ Download Video</button>
-    <div class="script-box" id="script"></div>
-  </div>
-</div>
+<video id="video" controls></video>
+<pre id="script"></pre>
 
 <script>
 async function generate() {
-  const product = document.getElementById("product").value;
+  const input = document.getElementById("input").value;
   const angle = document.getElementById("angle").value;
-  const duration = document.getElementById("duration").value;
 
-  const status = document.getElementById("status");
-  const output = document.getElementById("output");
+  document.getElementById("status").innerText = "Processing...";
 
-  status.innerText = "⚡ Generating script...";
-  output.style.display = "none";
+  const res = await fetch("/api/generate", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      input,
+      angle,
+      duration: "15s"
+    })
+  });
 
-  try {
-    const res = await fetch("/api/generate"), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        productName: product,
-        angle: angle,
-        duration: duration
-      })
-    });
+  const data = await res.json();
 
-    const data = await res.json();
+  document.getElementById("script").innerText = data.script;
 
-    if (data.videoUrl) {
-      document.getElementById("video").src = data.videoUrl;
-      document.getElementById("script").innerText = data.script;
-
-      status.innerText = "✅ Video ready!";
-      output.style.display = "block";
-    } else {
-      status.innerText = "⏳ Video still processing... try again in a few seconds.";
-    }
-
-  } catch (err) {
-    console.error(err);
-    status.innerText = "❌ Error generating video";
+  if (data.videoUrl) {
+    document.getElementById("video").src = data.videoUrl;
+    document.getElementById("status").innerText = "Done!";
+  } else {
+    document.getElementById("status").innerText = "Video processing...";
   }
-}
-
-function downloadVideo() {
-  const videoUrl = document.getElementById("video").src;
-  const a = document.createElement("a");
-  a.href = videoUrl;
-  a.download = "ai-video.mp4";
-  a.click();
 }
 </script>
 
