@@ -1,12 +1,37 @@
 export default async function handler(req, res) {
   try {
-    if (req.method !== "POST") {
-      return res.status(405).json({ error: "Method not allowed" });
+    const { input, angle, duration } = req.body;
+
+    let productName = input;
+    let productImage = "https://picsum.photos/720/1280";
+
+    // 🎯 Detect TikTok link
+    const isTikTok = input.includes("tiktok.com");
+
+    if (isTikTok) {
+      try {
+        const pageRes = await fetch(input, {
+          headers: {
+            "User-Agent": "Mozilla/5.0"
+          }
+        });
+
+        const html = await pageRes.text();
+
+        // Extract caption
+        const titleMatch = html.match(/<meta property="og:title" content="([^"]+)"/);
+        if (titleMatch) productName = titleMatch[1];
+
+        // Extract thumbnail
+        const imageMatch = html.match(/<meta property="og:image" content="([^"]+)"/);
+        if (imageMatch) productImage = imageMatch[1];
+
+      } catch (err) {
+        console.log("TikTok extraction failed");
+      }
     }
 
-    const { productName, angle } = req.body;
-
-    // 🧠 1. Generate script
+    // 🧠 Generate script
     const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -18,17 +43,14 @@ export default async function handler(req, res) {
         messages: [
           {
             role: "user",
-            content: `Create a 15-second TikTok script.
+            content: `Create a ${duration || "15s"} TikTok script.
 
-Product: ${productName}
+Based on this content: ${productName}
+
 Angle: ${angle}
 
-Rules:
-- Strong hook in first line
-- Short, punchy sentences
-- Natural tone
-- End with CTA
-- Max 60 words`
+Hook + benefits + CTA.
+Make it engaging and scroll-stopping.`
           }
         ]
       })
@@ -37,7 +59,7 @@ Rules:
     const aiData = await aiRes.json();
     const script = aiData.choices?.[0]?.message?.content || "No script";
 
-    // 🔊 2. Generate voice
+    // 🔊 Voice
     const voiceRes = await fetch(
       "https://api.elevenlabs.io/v1/text-to-speech/JBFqnCBsd6RMkjVDRZzb",
       {
@@ -56,8 +78,8 @@ Rules:
     const audioBuffer = await voiceRes.arrayBuffer();
     const audioBase64 = Buffer.from(audioBuffer).toString("base64");
 
-    // 🎬 3. Create video using Shotstack API
-    const shotstackRes = await fetch("https://api.shotstack.io/v1/render", {
+    // 🎬 Create video
+    const shotRes = await fetch("https://api.shotstack.io/v1/render", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -71,7 +93,7 @@ Rules:
                 {
                   asset: {
                     type: "image",
-                    src: "https://picsum.photos/720/1280"
+                    src: productImage
                   },
                   start: 0,
                   length: 15,
@@ -115,11 +137,9 @@ Rules:
       })
     });
 
-    const shotData = await shotstackRes.json();
-
+    const shotData = await shotRes.json();
     const renderId = shotData.response.id;
 
-    // ⏳ 4. Poll for video result
     let videoUrl = null;
 
     for (let i = 0; i < 10; i++) {
@@ -142,22 +162,16 @@ Rules:
       }
     }
 
-    if (!videoUrl) {
-      return res.json({
-        script,
-        message: "Video still processing, try again in a few seconds"
-      });
-    }
-
-    // ✅ Final response
-    res.status(200).json({
+    res.json({
       success: true,
+      productName,
+      productImage,
       script,
       videoUrl
     });
 
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Something went wrong" });
+    res.status(500).json({ error: "Failed" });
   }
 }
