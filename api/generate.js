@@ -1,53 +1,14 @@
 export default async function handler(req, res) {
   try {
-    if (req.method !== "POST") {
-      return res.status(405).json({ error: "Method not allowed" });
-    }
-
-    const { input, angle, duration } = req.body;
+    const { image, angle, duration } = req.body;
 
     const videoLength = parseInt(duration) || 15;
 
-    let productName = "Trending product";
-    let productImage = "https://picsum.photos/720/1280";
-
-    // ✅ STEP 1: RapidAPI TikTok extraction
-    if (input && input.includes("tiktok.com")) {
-      try {
-        const rapidRes = await fetch(
-          "https://tiktok-scraper7.p.rapidapi.com/index",
-          {
-            method: "GET",
-            headers: {
-              "X-RapidAPI-Key": process.env.RAPIDAPI_KEY,
-              "X-RapidAPI-Host": process.env.RAPIDAPI_HOST
-            }
-          }
-        );
-
-        const rapidData = await rapidRes.json();
-
-        // ⚠️ Adjust based on API response structure
-        productName =
-          rapidData.title ||
-          rapidData.data?.title ||
-          productName;
-
-        productImage =
-          rapidData.cover ||
-          rapidData.data?.cover ||
-          productImage;
-
-      } catch (e) {
-        console.log("RapidAPI failed, using fallback");
-      }
-    }
-
-    // 🧠 STEP 2: OpenAI script
-    let script = "You need to see this!";
+    // 🧠 1. Analyze image
+    let productDescription = "A trendy product";
 
     try {
-      const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+      const visionRes = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -58,25 +19,62 @@ export default async function handler(req, res) {
           messages: [
             {
               role: "user",
-              content: `Create a ${videoLength}s TikTok script.
-
-Product: ${productName}
-Angle: ${angle}
-
-Hook + benefits + CTA.`
+              content: [
+                { type: "text", text: "Describe this product for a TikTok ad." },
+                { type: "image_url", image_url: { url: image } }
+              ]
             }
           ]
         })
       });
 
-      const aiData = await aiRes.json();
-      script = aiData.choices?.[0]?.message?.content || script;
+      const data = await visionRes.json();
+      productDescription = data.choices?.[0]?.message?.content || productDescription;
 
     } catch (e) {
-      console.log("AI failed");
+      console.log("Vision failed");
     }
 
-    // 🔊 STEP 3: Voice
+    // ✍️ 2. Generate script split into scenes
+    let scenes = ["You need this now!"];
+
+    try {
+      const scriptRes = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "user",
+              content: `Create a ${videoLength}s TikTok ad script.
+
+Product:
+${productDescription}
+
+Angle: ${angle}
+
+Split into 3 short lines (for captions).`
+            }
+          ]
+        })
+      });
+
+      const scriptData = await scriptRes.json();
+      const fullText = scriptData.choices?.[0]?.message?.content || "";
+
+      scenes = fullText.split("\n").filter(s => s.trim());
+
+    } catch (e) {
+      console.log("Script failed");
+    }
+
+    const fullScript = scenes.join(" ");
+
+    // 🔊 3. Voice
     let audioBase64 = null;
 
     try {
@@ -89,7 +87,7 @@ Hook + benefits + CTA.`
             "Content-Type": "application/json"
           },
           body: JSON.stringify({
-            text: script,
+            text: fullScript,
             model_id: "eleven_multilingual_v2"
           })
         }
@@ -102,7 +100,32 @@ Hook + benefits + CTA.`
       console.log("Voice failed");
     }
 
-    // 🎬 STEP 4: Shotstack video
+    // 🎬 4. Build TikTok-style timeline
+    const sceneDuration = videoLength / scenes.length;
+
+    const captionClips = scenes.map((text, i) => ({
+      asset: {
+        type: "title",
+        text: text,
+        style: "minimal"
+      },
+      start: i * sceneDuration,
+      length: sceneDuration,
+      position: "center"
+    }));
+
+    const zoomClip = {
+      asset: {
+        type: "image",
+        src: image
+      },
+      start: 0,
+      length: videoLength,
+      fit: "cover",
+      scale: 1.1 // slight zoom
+    };
+
+    // 🎥 5. Render video
     let videoUrl = null;
 
     try {
@@ -115,19 +138,7 @@ Hook + benefits + CTA.`
         body: JSON.stringify({
           timeline: {
             tracks: [
-              {
-                clips: [
-                  {
-                    asset: {
-                      type: "image",
-                      src: productImage
-                    },
-                    start: 0,
-                    length: videoLength,
-                    fit: "cover"
-                  }
-                ]
-              },
+              { clips: [zoomClip] },
               ...(audioBase64 ? [{
                 clips: [{
                   asset: {
@@ -138,25 +149,13 @@ Hook + benefits + CTA.`
                   length: videoLength
                 }]
               }] : []),
-              {
-                clips: [
-                  {
-                    asset: {
-                      type: "title",
-                      text: script,
-                      style: "minimal"
-                    },
-                    start: 0,
-                    length: videoLength,
-                    position: "bottom"
-                  }
-                ]
-              }
+              { clips: captionClips }
             ]
           },
           output: {
             format: "mp4",
-            resolution: "sd"
+            resolution: "sd",
+            aspectRatio: "9:16"
           }
         })
       });
@@ -164,7 +163,6 @@ Hook + benefits + CTA.`
       const shotData = await shotRes.json();
       const renderId = shotData?.response?.id;
 
-      // Poll video
       for (let i = 0; i < 10; i++) {
         await new Promise(r => setTimeout(r, 3000));
 
@@ -189,17 +187,13 @@ Hook + benefits + CTA.`
       console.log("Video failed");
     }
 
-    // ✅ FINAL
-    res.status(200).json({
+    res.json({
       success: true,
-      productName,
-      productImage,
-      script,
+      script: fullScript,
       videoUrl
     });
 
   } catch (err) {
-    console.error(err);
     res.status(500).json({ error: "Server error" });
   }
 }
