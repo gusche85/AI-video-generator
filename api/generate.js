@@ -15,7 +15,7 @@ export default async function handler(req, res) {
     if (input && input.includes("tiktok.com")) {
       try {
         const rapidRes = await fetch(
-          "https://YOUR-RAPIDAPI-ENDPOINT",
+          "https://tiktok-downloader-download-tiktok-videos-without-watermark.p.rapidapi.com/index",
           {
             method: "GET",
             headers: {
