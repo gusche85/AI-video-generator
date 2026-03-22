@@ -6,35 +6,45 @@ export default async function handler(req, res) {
 
     const { input, angle, duration } = req.body;
 
-    let productName = input || "Trending product";
-    let productImage = "https://picsum.photos/720/1280";
-
     const videoLength = parseInt(duration) || 15;
 
-    // ✅ Try TikTok extraction (SAFE VERSION)
+    let productName = "Trending product";
+    let productImage = "https://picsum.photos/720/1280";
+
+    // ✅ STEP 1: RapidAPI TikTok extraction
     if (input && input.includes("tiktok.com")) {
       try {
-        const pageRes = await fetch(input, {
-          headers: {
-            "User-Agent": "Mozilla/5.0"
+        const rapidRes = await fetch(
+          "https://YOUR-RAPIDAPI-ENDPOINT",
+          {
+            method: "GET",
+            headers: {
+              "X-RapidAPI-Key": process.env.RAPIDAPI_KEY,
+              "X-RapidAPI-Host": process.env.RAPIDAPI_HOST
+            }
           }
-        });
+        );
 
-        const html = await pageRes.text();
+        const rapidData = await rapidRes.json();
 
-        const titleMatch = html.match(/og:title" content="([^"]+)/);
-        if (titleMatch) productName = titleMatch[1];
+        // ⚠️ Adjust based on API response structure
+        productName =
+          rapidData.title ||
+          rapidData.data?.title ||
+          productName;
 
-        const imageMatch = html.match(/og:image" content="([^"]+)/);
-        if (imageMatch) productImage = imageMatch[1];
+        productImage =
+          rapidData.cover ||
+          rapidData.data?.cover ||
+          productImage;
 
       } catch (e) {
-        console.log("TikTok extraction failed, using fallback");
+        console.log("RapidAPI failed, using fallback");
       }
     }
 
-    // 🧠 OpenAI (SAFE)
-    let script = "Check this out! You need this now.";
+    // 🧠 STEP 2: OpenAI script
+    let script = "You need to see this!";
 
     try {
       const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -45,15 +55,17 @@ export default async function handler(req, res) {
         },
         body: JSON.stringify({
           model: "gpt-4o-mini",
-          messages: [{
-            role: "user",
-            content: `Create a ${videoLength}s TikTok script.
+          messages: [
+            {
+              role: "user",
+              content: `Create a ${videoLength}s TikTok script.
 
 Product: ${productName}
 Angle: ${angle}
 
 Hook + benefits + CTA.`
-          }]
+            }
+          ]
         })
       });
 
@@ -61,10 +73,10 @@ Hook + benefits + CTA.`
       script = aiData.choices?.[0]?.message?.content || script;
 
     } catch (e) {
-      console.log("OpenAI failed, using fallback script");
+      console.log("AI failed");
     }
 
-    // 🔊 ElevenLabs (SAFE)
+    // 🔊 STEP 3: Voice
     let audioBase64 = null;
 
     try {
@@ -87,10 +99,10 @@ Hook + benefits + CTA.`
       audioBase64 = Buffer.from(audioBuffer).toString("base64");
 
     } catch (e) {
-      console.log("Voice generation failed");
+      console.log("Voice failed");
     }
 
-    // 🎬 Shotstack (SAFE)
+    // 🎬 STEP 4: Shotstack video
     let videoUrl = null;
 
     try {
@@ -117,16 +129,14 @@ Hook + benefits + CTA.`
                 ]
               },
               ...(audioBase64 ? [{
-                clips: [
-                  {
-                    asset: {
-                      type: "audio",
-                      src: `data:audio/mp3;base64,${audioBase64}`
-                    },
-                    start: 0,
-                    length: videoLength
-                  }
-                ]
+                clips: [{
+                  asset: {
+                    type: "audio",
+                    src: `data:audio/mp3;base64,${audioBase64}`
+                  },
+                  start: 0,
+                  length: videoLength
+                }]
               }] : []),
               {
                 clips: [
@@ -154,7 +164,7 @@ Hook + benefits + CTA.`
       const shotData = await shotRes.json();
       const renderId = shotData?.response?.id;
 
-      // Poll
+      // Poll video
       for (let i = 0; i < 10; i++) {
         await new Promise(r => setTimeout(r, 3000));
 
@@ -173,17 +183,13 @@ Hook + benefits + CTA.`
           videoUrl = statusData.response.url;
           break;
         }
-
-        if (statusData.response.status === "failed") {
-          break;
-        }
       }
 
     } catch (e) {
-      console.log("Video generation failed");
+      console.log("Video failed");
     }
 
-    // ✅ FINAL RESPONSE
+    // ✅ FINAL
     res.status(200).json({
       success: true,
       productName,
