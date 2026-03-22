@@ -164,6 +164,12 @@ Make it engaging and scroll-stopping.`
         videoUrl = statusData.response.url;
         break;
       }
+
+      if (statusData.response.status === "failed") {
+  console.error("Shotstack render failed:", statusData.response.message);
+  break;
+}
+
     }
 
     res.json({
