@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>AI Video Generator</title>
+  <title>TikTok AI Generator</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <style>
@@ -21,21 +21,23 @@
     }
 
     button {
-      background: purple;
+      background: linear-gradient(135deg, #ff0050, #7b61ff);
       color: white;
+      font-weight: bold;
     }
 
     video {
       width: 100%;
       margin-top: 15px;
+      border-radius: 12px;
     }
   </style>
 </head>
 <body>
 
-<h2>🎬 AI Video Generator</h2>
+<h2>🎬 TikTok AI Generator</h2>
 
-<input id="input" placeholder="Paste TikTok link here...">
+<input type="file" id="image" accept="image/*">
 
 <select id="angle">
   <option>Talking</option>
@@ -43,40 +45,54 @@
   <option>Problem-Solution</option>
 </select>
 
-<button onclick="generate()">Generate</button>
+<button onclick="generate()">Generate Video</button>
 
 <p id="status"></p>
-
 <video id="video" controls></video>
 <pre id="script"></pre>
 
 <script>
 async function generate() {
-  const input = document.getElementById("input").value;
+  const file = document.getElementById("image").files[0];
   const angle = document.getElementById("angle").value;
 
-  document.getElementById("status").innerText = "Processing...";
-
-  const res = await fetch("/api/generate", {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({
-      input,
-      angle,
-      duration: "15s"
-    })
-  });
-
-  const data = await res.json();
-
-  document.getElementById("script").innerText = data.script;
-
-  if (data.videoUrl) {
-    document.getElementById("video").src = data.videoUrl;
-    document.getElementById("status").innerText = "Done!";
-  } else {
-    document.getElementById("status").innerText = "Video processing...";
+  if (!file) {
+    alert("Upload image first");
+    return;
   }
+
+  const reader = new FileReader();
+
+  reader.onload = async function () {
+    const base64Image = reader.result;
+
+    document.getElementById("status").innerText = "Generating...";
+
+    const res = await fetch("/api/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        image: base64Image,
+        angle: angle,
+        duration: "15"
+      })
+    });
+
+    const data = await res.json();
+
+    document.getElementById("script").innerText = data.script;
+
+    if (data.videoUrl) {
+      document.getElementById("video").src = data.videoUrl;
+      document.getElementById("status").innerText = "Done!";
+    } else {
+      document.getElementById("status").innerText = "Processing video...";
+    }
+  };
+
+  reader.readAsDataURL(file);
 }
 </script>
 
