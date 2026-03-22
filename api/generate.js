@@ -15,7 +15,7 @@ export default async function handler(req, res) {
     if (input && input.includes("tiktok.com")) {
       try {
         const rapidRes = await fetch(
-          "https://tiktok-scraper7.p.rapidapi.com/user/story?user_id=7128593328456041478",
+          "https://tiktok-scraper7.p.rapidapi.com/index",
           {
             method: "GET",
             headers: {
