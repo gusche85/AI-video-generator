@@ -6,7 +6,7 @@ export default async function handler(req, res) {
     let productImage = "https://picsum.photos/720/1280";
 
     // 🎯 Detect TikTok link
-    const isTikTok = input.includes("tiktok.com");
+    const isTikTok = input.includes("vt.tiktok.com");
 
     if (isTikTok) {
       try {
