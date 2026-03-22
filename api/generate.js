@@ -142,7 +142,7 @@ Make it engaging and scroll-stopping.`
 
     let videoUrl = null;
 
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 20; i++) {
       await new Promise(r => setTimeout(r, 3000));
 
       const statusRes = await fetch(
