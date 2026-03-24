@@ -7,7 +7,7 @@ async function uploadToCloudinary(base64Image) {
       method: "POST",
       body: new URLSearchParams({
         file: base64Image,
-        upload_preset: "ml_default" // default preset
+        upload_preset: "mypreset" // default preset
       })
     }
   );
