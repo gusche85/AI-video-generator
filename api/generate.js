@@ -1,6 +1,41 @@
+async function uploadToCloudinary(base64Image) {
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+
+  const res = await fetch(
+    `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+    {
+      method: "POST",
+      body: new URLSearchParams({
+        file: base64Image,
+        upload_preset: "ml_default" // default preset
+      })
+    }
+  );
+
+  const data = await res.json();
+
+  if (!data.secure_url) {
+    console.log("Cloudinary error:", data);
+    throw new Error("Image upload failed");
+  }
+
+  return data.secure_url;
+}
+
+
+
 export default async function handler(req, res) {
   try {
     const { image, angle, duration } = req.body;
+
+// ✅ Upload image first
+let imageUrl = image;
+
+try {
+  imageUrl = await uploadToCloudinary(image);
+} catch (e) {
+  console.log("Image upload failed");
+}
 
     const videoLength = parseInt(duration) || 15;
 
@@ -21,7 +56,7 @@ export default async function handler(req, res) {
               role: "user",
               content: [
                 { type: "text", text: "Describe this product for a TikTok ad." },
-                { type: "image_url", image_url: { url: image } }
+                { type: "image_url", image_url: { url: imageURL } }
               ]
             }
           ]
@@ -117,7 +152,7 @@ Split into 3 short lines (for captions).`
     const zoomClip = {
       asset: {
         type: "image",
-        src: image
+        src: imageUrl
       },
       start: 0,
       length: videoLength,
