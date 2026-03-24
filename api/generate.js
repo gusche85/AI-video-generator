@@ -129,7 +129,7 @@ Split into 3 short lines (for captions).`
     let videoUrl = null;
 
     try {
-      const shotRes = await fetch("https://api.shotstack.io/v1/render", {
+      const shotRes = await fetch("https://api.shotstack.io/edit/stage/render", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -167,7 +167,7 @@ Split into 3 short lines (for captions).`
         await new Promise(r => setTimeout(r, 3000));
 
         const statusRes = await fetch(
-          `https://api.shotstack.io/v1/render/${renderId}`,
+        `https://api.shotstack.io/edit/stage/render/${renderId}`,
           {
             headers: {
               "x-api-key": process.env.SHOTSTACK_API_KEY
