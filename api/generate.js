@@ -198,7 +198,7 @@ Split into 3 short lines (for captions).`
       const shotData = await shotRes.json();
       const renderId = shotData?.response?.id;
 
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 20; i++) {
         await new Promise(r => setTimeout(r, 3000));
 
         const statusRes = await fetch(
