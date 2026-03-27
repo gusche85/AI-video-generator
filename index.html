@@ -68,7 +68,7 @@ async function generate() {
 
     document.getElementById("status").innerText = "Generating...";
 
-    const res = await fetch("/api/generate", {
+    const res = await fetch("/api/generate.js", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
